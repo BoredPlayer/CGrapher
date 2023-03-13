@@ -28,6 +28,8 @@ def findQCriterionAvail(vis, args = []):
     if(not isinstance(vis, list)):
         vis = [None for var in range(9)]
     column_names = ["du/dx", "du/dy", "du/dz", "dv/dx", "dv/dy", "dv/dz", "dw/dx", "dw/dy", "dw/dz"]
+    if(len(vis)<9):
+        vis = [None for var in range(9)]
     for i in range(9):
         if(len(args)<i+1):
             intext = input(f"Please provide index or name of {column_names[i]} column:\n[{vis[i]}]\n/processing QCriterion vis {column_names[i]} > ")
@@ -37,7 +39,7 @@ def findQCriterionAvail(vis, args = []):
         if(intext!=""):
             if(intext[-1]=="!"):
                 try:
-                    vis[i] = int(intext[-1])
+                    vis[i] = int(intext[:-1])
                 except:
                     print("Could not read column index. Falling back to default value")
             else:

@@ -39,17 +39,399 @@ ylims=[-0.04, 0.04]
 #xlims=[0.18, 0.22]
 #ylims=[-0.03, 0.01]
 
+class maskSettings:
+    def __init__(self):
+        self.files = []
+        self.xarray = []
+        self.yarray = []
+        self.xcol = 0
+        self.ycol = 1
+        self.removeFlag = False
+        self.color = "#8e8e8e"
+        self.name = "mask"
+        self.filename=""
+    
+    class fileSettings:
+        def __init__(self):
+            self.filename = ""
+            self.reverseColumn = [None]
+            self.separator = " "
+            self.labelSeparator = " "
+            self.xcol = 0
+            self.ycol = 1
+
+    def menu(self, args):
+        intext = ""
+        while(intext!="q"):
+            if(len(args)<1):
+                intext = input("mask > ")
+            else:
+                intext = " ".join(args)
+                print(f"mask > {args[0]}")
+            args = [var for var in intext.split(" ") if var]
+            if(intext == 'q'):
+                break
+            if(intext == ""):
+                self.printAvailable()
+                continue
+            if(args[0] == "filename"):
+                self.setFilename(args[1:])
+            if(args[0] == "name"):
+                self.setMaskName(args[1:])
+            if(args[0] == "color"):
+                self.setColor(args[1:])
+            if(args[0] == "print"):
+                self.printFiles(args=args[1:])
+            if(args[0] == "del"):
+                self.removeFileFromList(args[1:])
+            if(args[0]=="cols"):
+                self.setColumns(args[1:])
+            if(args[0]=="rev"):
+                self.setReverse(args[1:])
+            if(args[0]=="separators"):
+                self.setSeparators(args[1:])
+            if(args[0]=="settings"):
+                self.printSettings()
+            if(args[0]=="load"):
+                self.loadFile(args[1:])
+            args = []
+            intext = ""
+    
+    def printAvailable(self):
+        print("filename\tadd file to list of mask contours")
+        print("name\t\tset mask name")
+        print("color\t\tset mask colour")
+        print("print\t\tprint all listed files")
+        print("del\t\tremove file from list")
+        print("cols\t\tset X and Y columns of mask file")
+        print("rev\t\treverse direction of axis")
+        print("separators\tspecify data and label separators in file")
+        print("settings\tlist settings for all files")
+        print("load\t\taccept changes and load listed files")
+        print("remove\t\tremove mask")
+        print("q\t\treturn to main menu")
+
+    def flagMaskForDeletion(self):
+        self.deleteFlag = True
+    
+    def setMaskName(self, args):
+        if(len(args)<1):
+            intext = input(f"Please specify name for current mask:\n[{self.name}]\nmask name > ")
+        else:
+            intext = args[0]
+            print(f"Please specify name for current mask:\n[{self.name}]\nmask name > {args[0]}")
+        self.name = intext
+        print(f"New name: {self.name}")
+    
+    def setColor(self, args):
+        if(len(args)<1):
+            intext = input(f"Please specify color for current mask:\n[{self.color}]\nmask color > ")
+        else:
+            intext = args[0]
+            print(f"Please specify name for current mask:\n[{self.color}]\nmask color > {args[0]}")
+        self.color = intext
+        print(f"New color: {self.color}")
+    
+    def printSettings(self):
+        print(f"Name: {self.name}")
+        print(f"Colour: {self.color}")
+        print(f"Number of files listed: {len(self.files)}")
+        print(f"Current number of points loaded: {len(self.xarray)}")
+        print("File settings:")
+        for i, file in enumerate(self.files):
+            print(f"File index: ({i})")
+            print(f"\tFile name:\t\t{file.filename}")
+            print(f"\tColumn reversed:\t{file.reverseColumn}")
+            print(f"\tData separator:\t\t\"{file.separator}\"")
+            print(f"\tLabel separator:\t\"{file.labelSeparator}\"")
+            print(f"\tX-coordinate column:\t{file.xcol}")
+            print(f"\tY-coordinate column:\t{file.ycol}")
+    
+    def setFilename(self, args=[]):
+        if(len(args)<1):
+            intext = input(f"Please provide mask file name:\nmask filename > ")
+        else:
+            print(f"Please provide mask file name:\nmask filename > ")
+            intext = args[0]
+        if(intext=='q'):
+            return
+        if(os.path.isfile(intext)):
+            file = self.fileSettings()
+            file.filename = intext
+            file.reverseColumn = [None]
+            file.xcol = self.xcol
+            file.ycol = self.ycol
+            file.separator = " "
+            file.labelSeparator = " "
+            print(f"File added to list:\n\"{intext}\"")
+            self.files.append(file)
+            return
+        if(os.path.isdir(intext)):
+            localFilelist = os.listdir(intext)
+            for filename in localFilelist:
+                file = self.fileSettings()
+                file.filename = intext+"/"+filename
+                file.xcol = self.xcol
+                file.ycol = self.ycol
+                file.reverseColumn = [None]
+                file.separator = " "
+                file.labelSeparator = " "
+                self.files.append(file)
+            print(f"Directory added to list:\n\"{intext}\"\nFiles added:")
+            for i, filename in enumerate(os.listdir(intext)):
+                print(f"{i}:\t{filename}")
+            return
+        print("Could not find file or directory.")
+        if(len(args)==0):
+            self.setFilename()
+        
+    def printFiles(self, mark=[], args=[]):
+        if(len(self.files)==0):
+            print("No files currently on list.")
+            return
+        print("Files on list:")
+        for i in range(len(self.files)):
+            if(len(mark)>i):
+                print(f"{i}:\t{self.files[i].filename}\t{mark[i]}")
+            else:
+                print(f"{i}:\t{self.files[i].filename}")
+
+    def removeFileFromList(self, args=[]):
+        if(len(self.files)==0):
+            print("No files to delete from list.")
+            return
+        print("Select file index to remove from list ('q' to cancel):")
+        self.printFiles()
+        if(len(args)<1):
+            intext = input("mask remove > ")
+        else:
+            print(f"mask remove > {args[0]}")
+            intext = args[0]
+        if(intext=='q'):
+            print("Cancelling module")
+            return
+        try:
+            intext = int(intext)
+        except:
+            print("Could not load index. Please provide a file number.")
+        if(intext>=len(self.files) or intext<0):
+            print("Index out of range. Please select correct file number.")
+        self.files.pop(intext)
+        if(len(args)>0):
+            args = args[:-1]
+        self.removeFileFromList(args)
+    
+    def setColumns(self, args = []):
+        print("Please select file index ('q' to cancel):")
+        self.printFiles(mark=[(file.xcol, file.ycol) for file in self.files])
+        if(len(args)<1):
+            intext = input("mask setcol > ")
+        else:
+            intext = args[0]
+            print(f"mask setcol > {args[0]}")
+        if(intext=='q'):
+            return
+        try:
+            intext = int(intext)
+        except:
+            print("Could not read file index. Cancelling.")
+            return
+        fileIndex = intext
+        if(len(args)<2):
+            intext = input(f"Please provide mask X-coordinate column:\n[{self.xcol}]\nmask X-coordinate > ")
+        else:
+            print(f"Please provide mask X-coordinate column:\n[{self.xcol}]\nmask X-coordinate > {args[1]}")
+            intext = args[1]
+        if(intext!=""):
+            if(intext[-1]=="!"):
+                try:
+                    self.files[fileIndex].xcol = int(intext[:-1])
+                except:
+                    print("Could not read collumn index. Falling back to default value.")
+            else:
+                self.files[fileIndex].xcol = intext
+        if(len(args)<3):
+            intext = input(f"Please provide mask Y-coordinate column:\n[{self.ycol}]\nmask Y-coordinate > ")
+        else:
+            print(f"Please provide mask Y-coordinate column:\n[{self.ycol}]\nmask Y-coordinate > {args[2]}")
+            intext = args[2]
+        if(intext!=""):
+            if(intext[-1]=="!"):
+                try:
+                    self.files[fileIndex].ycol = int(intext[:-1])
+                except:
+                    print("Could not read collumn index. Falling back to default value.")
+            else:
+                self.files[fileIndex].ycol = intext
+        if(len(args)>0):
+            args = args[:-3]
+        self.setColumns(args)
+    
+    def setReverse(self, args=[]):
+        print("Select file to reverse column ('q' to cancel).")
+        self.printFiles([var.reverseColumn for var in self.files if var.reverseColumn[0]!=None])
+        if(len(args)<1):
+            intext = input(f"mask reverse > ")
+        else:
+            print(f"mask reverse > {args[0]}")
+            intext = args[0]
+        if(intext=='q'):
+            return
+        try:
+            intext = int(intext)
+        except:
+            print("Could not load index. Please provide a file number.")
+        if(intext>=len(self.filename) or intext<0):
+            print("Index out of range. Please select correct file number.")
+        if(len(args)<2):
+            intext2 = input("Please specify axis (X, Y):\nmask reverse axis > ")
+        else:
+            print(f"Please specify axis (X, Y):\nmask reverse axis > {args[1]}")
+            intext2 = args[1]
+        if("X" in intext2 or "x" in intext2):
+            if(not "X" in self.files[intext].reverseColumn):
+                self.files[intext].reverseColumn = ["X"]+self.files[intext].reverseColumn
+            else:
+                self.files[intext].reverseColumn.pop(self.files[intext].reverseColumn.index("X"))
+                print(f"X column of file {intext} will not be reversed.")
+        if("Y" in intext2 or "y" in intext2):
+            if(not "Y" in self.files[intext].reverseColumn):
+                self.files[intext].reverseColumn = ["Y"]+self.files[intext].reverseColumn
+            else:
+                self.files[intext].reverseColumn.pop(self.files[intext].reverseColumn.index("Y"))
+                print(f"Y column of file {intext} will not be reversed.")
+        if(len(args)>0):
+            args = args[:-2]
+        self.setReverse(args)
+    
+    def fixWhiteSigns(self, text):
+        if(text=='\\t'):
+            text = '\t'
+        if(text=="space"):
+            text = " "
+        return text
+
+    def setSeparators(self, args=[]):
+        print("Select file to set separators ('q' to cancel).")
+        self.printFiles([(var.separator, var.labelSeparator) for var in self.files])
+        if(len(args)<1):
+            intext = input(f"mask separators > ")
+        else:
+            print(f"mask separators > {args[0]}")
+            intext = args[0]
+        if(intext=='q'):
+            return
+        try:
+            intext = int(intext)
+        except:
+            print("Could not load index. Please provide a file number.")
+        if(intext>=len(self.filename) or intext<0):
+            print("Index out of range. Please select correct file number.")
+        if(len(args)<2):
+            intext2 = input("Please specify data separator:\nmask separators data > ")
+        else:
+            print(f"Please specify data separator:\nmask separators data > {args[1]}")
+            intext2 = args[1]
+        self.files[intext].separator = self.fixWhiteSigns(intext2)
+        if(len(args)<3):
+            intext2 = input("Please specify label separator:\nmask separators label > ")
+        else:
+            print(f"Please specify label separator:\nmask separators label > {args[2]}")
+            intext2 = args[2]
+        self.files[intext].labelSeparator = self.fixWhiteSigns(intext2)
+        if(len(args)>1):
+            args = args[:-3]
+        self.setSeparators(args)
+    
+    def getFileContents(self, file):
+        print(f"Opening file {file.filename}")
+        ffile = open(file.filename, "r")
+        if(ffile==None):
+            print("Could not open file.")
+            return [[], []]
+        legend = []
+        contents = [[], []]
+        for line in ffile:
+            ll = [var for var in line.split(file.separator) if var]
+            if(len(ll)<=1):
+                continue
+            try:
+                float(ll[0])
+            except:
+                legend = [var for var in line.split(file.labelSeparator) if var]
+                continue
+            if(isinstance(file.xcol, str)):
+                try:
+                    file.xcol = legend.index(file.xcol)
+                except:
+                    print(f"Could not find legend for {file.xcol}. Falling back to 0.")
+                    file.xcol = 0
+            if(isinstance(file.ycol, str)):
+                try:
+                    file.ycol = legend.index(file.xcol)
+                except:
+                    print(f"Could not find legend for {file.ycol}. Falling back to 1.")
+                    file.ycol = 1
+            contents[0].append(float(ll[file.xcol]))
+            contents[1].append(float(ll[file.ycol]))
+        ffile.close()
+        print("File closed.")
+        return contents
+    
+    def loadFile(self, args):
+        print("Loading mask contours.")
+        for i, file in enumerate(self.files):
+            contents = self.getFileContents(file)
+            print(f"Loaded {len(contents[0])} points from file {i}.")
+            if("X" in file.reverseColumn):
+                contents = [contents[0][::-1], contents[1]]
+            if("Y" in file.reverseColumn):
+                contents = [contents[0], contents[1][::-1]]
+            self.xarray += contents[0]
+            self.yarray += contents[1]
+        print("Done.")
+
 #class for settings management
 class graphSettings:
-    alias = "."
-    XCoord = 1
-    YCoord = 2
-    number_of_threads = 12
-    width = 7
-    height = width*np.abs(((ylims[1]-ylims[0])/(xlims[1]-xlims[0])))*2
-    maxfiles = None
-    numbering_method="flow-time"
-    pass
+    def __init__(self):
+        self.alias = "."
+        self.XCoord = 1
+        self.YCoord = 2
+        self.number_of_threads = cpu_count()
+        self.width = 7
+        self.xlims = [-1., 1.]
+        self.ylims = [-1., 1.]
+        self.height = width*np.abs(((ylims[1]-ylims[0])/(xlims[1]-xlims[0])))*2
+        self.maxfiles = None
+        self.numbering_method="flow-time"
+        self.draw_airfoil = False
+        self.airfoil_chord = 1.
+        self.airfoil_thickness = 0.12
+        self.airfoil_aoa = 0.
+        self.n18x = []
+        self.n18y = []
+        self.masks = []
+        self.zipfilenames = None
+        self.maxfiles = None
+        self.visualisation_column=3
+        self.levels = None
+        self.dt = 0.001
+        self.xaxis_scale = 1.
+        self.yaxis_scale = 1.
+        self.xlabel = "X Coordinate [m]"
+        self.ylabel = "Y Coordinate [m]"
+        self.processing_method = processingFunctions.plainProcess
+        self.probes = [[], []]
+        self.probe_coords = []
+        self.probe_avg = []
+        self.probe_amp = []
+        self.h = 0.001
+        self.number_of_threads = 12
+        self.start_time = 0
+        self.end_time = 0
+        self.videoname = "output.mp4"
+        self.horizontal_resolution = 1280
+        self.preserveRAM = False
 
 #Miscancellous
 def rotationMatrix(a):
@@ -261,12 +643,8 @@ def readToAverage(t, zipfilenames,
     legend_manager[t] = legend
     coords_manager[t] = coords
     pass
-    
-def averageFiles(zipfilenames,
-            maxfiles, alias,
-            XCoord, YCoord,
-            numbering_method, dt,
-            number_of_threads, args = []):
+
+def averageFiles(s, args = []):
     intext = ""
     outputfilename = "output.png"
     if(len(args)<1):
@@ -292,21 +670,21 @@ def averageFiles(zipfilenames,
             print("Overwriting file.")
     
     filelist = []
-    if(zipfilenames!=None):
-        if(isinstance(zipfilenames, list)):
-            for zipfilename in zipfilenames:
+    if(s.zipfilenames!=None):
+        if(isinstance(s.zipfilenames, list)):
+            for zipfilename in s.zipfilenames:
                 print(f"reading filelist of {zipfilename}")
                 zfile = zipfile.ZipFile(zipfilename, 'r')
                 filelist.append([])
                 for filename in zfile.filelist:
-                    if(alias in filename.filename):
+                    if(s.alias in filename.filename):
                         filelist[-1].append(filename.filename)
                 zfile.close()
         else:
-            zfile = zipfile.ZipFile(zipfilenames, 'r')
+            zfile = zipfile.ZipFile(s.zipfilenames, 'r')
             filelist.append([])
             for filename in zfile.filelist:
-                if(alias in filename.filename):
+                if(s.alias in filename.filename):
                     filelist[0].append(filename.filename)
             zfile.close()
     else:
@@ -315,21 +693,21 @@ def averageFiles(zipfilenames,
     sumlist=0
     for i in range(len(filelist)):
         sumlist = sumlist+len(filelist[i])
-    if(maxfiles == None):
-        maxfiles = int(sumlist/number_of_threads)+1
+    if(s.maxfiles == None):
+        s.maxfiles = int(sumlist/s.number_of_threads)+1
     sumlist=0
     endlist=len(filelist[0])
     sumlist_tab = []
     start_index = 0
     end_index = 0
     sumlist1 = 0
-    sumlist2 = maxfiles
+    sumlist2 = s.maxfiles
     average_manager = Manager().dict()
     filenum_manager = Manager().dict()
     legend_manager = Manager().dict()
     coords_manager = Manager().dict()
     threads = []
-    for t in range(number_of_threads):
+    for t in range(s.number_of_threads):
         while(sumlist2>endlist):
             end_index+=1
             if(len(filelist)<=end_index):
@@ -340,22 +718,22 @@ def averageFiles(zipfilenames,
             start_index+=1
         print(f"[{t}]\t{start_index}@{sumlist1}, {end_index}@{sumlist2}\tsumlist={sumlist}")
         print(f"Adding new process: zipfiles at ({start_index}:{end_index+1})")
-        #t, zipfilenames, minfiles, maxfiles, sumlist, alias, visualisation_column, xlims, ylims, probes, probe_coords, content_manager, time_manager, probes_manager
-        threads.append(Process(target=readToAverage, args=(t, zipfilenames[start_index:end_index+1],
-                            sumlist1, maxfiles, sumlist,
-                            alias,
-                            numbering_method, dt,
+        #t, s.zipfilenames, minfiles, s.maxfiles, sumlist, s.alias, visualisation_column, xlims, ylims, probes, probe_coords, content_manager, time_manager, probes_manager
+        threads.append(Process(target=readToAverage, args=(t, s.zipfilenames[start_index:end_index+1],
+                            sumlist1, s.maxfiles, sumlist,
+                            s.alias,
+                            s.numbering_method, s.dt,
                             average_manager, filenum_manager, legend_manager, coords_manager)))
         threads[-1].start()
-        sumlist1+=maxfiles
-        sumlist2+=maxfiles
+        sumlist1+=s.maxfiles
+        sumlist2+=s.maxfiles
     for t in threads:
         t.join()
     
     averager = np.zeros_like(average_manager[0])
     filenum = 0
     print(legend_manager[0])
-    for t in range(number_of_threads):
+    for t in range(s.number_of_threads):
         averager = averager+average_manager[t]*filenum_manager[t]
         filenum += filenum_manager[t]
         print(f"Number of files at process {t}: {filenum_manager[t]}")
@@ -367,7 +745,7 @@ def averageFiles(zipfilenames,
             file.write(" ")
         else:
             file.write("\n")
-    coords = coords_manager[number_of_threads-1]
+    coords = coords_manager[s.number_of_threads-1]
     for ln in range(len(averager)):
         for tt in range(len(averager[ln])):
             if(tt>0 and tt<=3):
@@ -380,27 +758,22 @@ def averageFiles(zipfilenames,
                 file.write("\n")
     print(f"File written to: {outputfilename}")
     
-def readFiles(t,
-            zipfilenames,
+def readFiles(t, zipfilenames, s,
             minfiles, maxfiles, sumlist,
-            alias,
-            XCoord, YCoord, visualisation_column,
-            numbering_method, dt, processing_method,
-            xlims, ylims,
-            probes, probe_coords,
             content_manager,
             time_manager,
-            probes_manager):
+            probes_manager, image_manager):
     content = []
     lim_content = []
     time_table = []
+    image_array = []
     number_of_files = 0
     rows = None
     cols = None
     probes_ret = []
-    for i in range(len(probes)):
+    for i in range(len(s.probes)):
         probes_ret.append([])
-        for j in range(len(probes[i])):
+        for j in range(len(s.probes[i])):
             probes_ret[i].append([])
     labels = []
     prev_line = ""
@@ -418,14 +791,14 @@ def readFiles(t,
                     zfile = zipfile.ZipFile(zipfilename, 'r')
                     filelist.append([])
                     for filename in zfile.filelist:
-                        if(alias in filename.filename):
+                        if(s.alias in filename.filename):
                             filelist[-1].append(filename.filename)
                     zfile.close()
             else:
                 zfile = zipfile.ZipFile(zipfilename, 'r')
                 filelist.append([])
                 for filename in zfile.filelist:
-                    if(alias in filename.filename):
+                    if(s.alias in filename.filename):
                         filelist[0].append(filename.filename)
         else:
             raise Exception("Fast read currently not available for non-zipped files")
@@ -439,8 +812,11 @@ def readFiles(t,
             file = zfile.open(filename, "r")
             lines = file.read().decode().split("\n")
             prev_len = 0
-            content.append([])
-            time_table.append(getNumbering(filename, numbering_method)*dt)
+            if(s.preserveRAM):
+                content_rotated = []
+            else:
+                content.append([])
+            time_table.append(getNumbering(filename, s.numbering_method)*s.dt)
             for l, line in enumerate(lines):
                 ll = [var for var in line.split(" ") if var]
                 try:
@@ -449,66 +825,77 @@ def readFiles(t,
                     print(f"Could not read line:\n{line}")
                     prev_line = ll
                     continue
-                if(isinstance(XCoord, str)):
-                    XCoord = prev_line.index(XCoord)
-                if(isinstance(YCoord, str)):
-                    YCoord = prev_line.index(YCoord)
+                if(isinstance(s.XCoord, str)):
+                    s.XCoord = prev_line.index(s.XCoord)
+                if(isinstance(s.YCoord, str)):
+                    s.YCoord = prev_line.index(s.YCoord)
                 if(vis_col_num==None):
-                    if(isinstance(visualisation_column, int)):
-                        vis_col_num = visualisation_column
-                    if(isinstance(visualisation_column, str)):
-                        vis_col_num = prev_line.index(visualisation_column)
+                    if(isinstance(s.visualisation_column, int)):
+                        vis_col_num = s.visualisation_column
+                    if(isinstance(s.visualisation_column, str)):
+                        vis_col_num = prev_line.index(s.visualisation_column)
                 if(len(ll)<prev_len):
                     break
-                for ln in range(3):
-                    if(len(content[-1])<3):
-                        content[-1].append([])
-                    content[-1][ln].append(0.)
-                content[-1][0][-1], content[-1][1][-1], content[-1][2][-1], visualisation_column, udm = processing_method(XCoord, YCoord, prev_line, ll, visualisation_column, udm)
+                if(not s.preserveRAM):
+                    for ln in range(3):
+                        if(len(content[-1])<3):
+                            content[-1].append([])
+                        content[-1][ln].append(0.)
+                a, b, c, s.visualisation_column, udm = s.processing_method(s.XCoord, s.YCoord, prev_line, ll, s.visualisation_column, udm)
+                if(s.preserveRAM):
+                    content_rotated.append([a, b, c])
+                else:
+                    content[-1][0][-1] = a
+                    content[-1][1][-1] = b
+                    content[-1][2][-1] = c
                 prev_len = len(ll)
                 #print(content)
-            print(f"[{t}]\tXCol = {XCoord}\tYCol = {YCoord}\n[{t}]\tvis = {[visualisation_column]}")
+                #make image
+            if(s.preserveRAM):
+                image_array.append(makeSingularImage(s, np.asarray(content_rotated), returnString = True))
+                #content.pop(0)
+            print(f"[{t}]\tXCol = {s.XCoord}\tYCol = {s.YCoord}\n[{t}]\tvis = {[s.visualisation_column]}")
             number_of_files += 1
             if(maxfiles+(minfiles-sumlist)==number_of_files):
                 break
         zfile.close()
     for i in range(len(content)):
-        probes_nw = copy(probes)
+        s.probes_nw = copy(s.probes)
         lim_content.append([])
-        lim_content[i], probes_nw, rows, cols = proc2(None, None, time_table[i], numbering_method, probe_coords, probes_nw, xlims, ylims, np.transpose(np.asarray(content[i])), rows, cols)
-        for pt in range(len(probes[1])):
-            probes_ret[0][pt].append(probes_nw[0][pt][0])
-            probes_ret[1][pt].append(probes_nw[1][pt][0])
+        lim_content[i], s.probes_nw, rows, cols = proc2(None, None, time_table[i], s.numbering_method, s.probe_coords, s.probes_nw, s.xlims, s.ylims, np.transpose(np.asarray(content[i])), rows, cols)
+        for pt in range(len(s.probes[1])):
+            probes_ret[0][pt].append(s.probes_nw[0][pt][0])
+            probes_ret[1][pt].append(s.probes_nw[1][pt][0])
         print(f"[{t}]max[1]={np.max(content[i][0])}")
     print(f"[{t}]\tSending data to main thread")
-    content_manager[t] = lim_content
+    if(not s.preserveRAM):
+        content_manager[t] = lim_content
+    else:
+        content_manager[t] = []
+        image_manager[t] = image_array
     time_manager[t] = time_table
     probes_manager[t] = probes_ret
     
-def makeImage(z,
-            width, height,
-            number_of_files,
-            levels,
-            draw_airfoil, n18x, n18y, n18y2,
-            start_time, end_time,
-            xlims, ylims, h,
-            probe_coords, probes, probe_amp, probe_avg,
-            content_manager, time_manager, image_manager):
+def makeImage(z, s,
+            number_of_files, n18y2,
+            h,
+            content_manager, time_manager, image_manager,
+            returnImage = False):
     images = []
     print(f"[{z}]\t Starting process")
     fig = plt.figure(
-        figsize=(width, height),
-        dpi = 1080/height
+        figsize=(s.width, s.height),
+        dpi = 1080/s.height
     )
-    if(len(probe_coords)>0):
+    if(len(s.probe_coords)>0):
         ax = fig.add_subplot(2,1,1)
         axb = fig.add_subplot(2, 1, 2)
         axb.set_box_aspect(1/3)
         axb.grid(True)
     else:
         ax = fig.add_subplot(1,1,1)
-    ax.set_xlim((xlims[0], xlims[1]))
-    ax.set_ylim((ylims[0], ylims[1]))
+    ax.set_xlim((s.xlims[0]*s.xaxis_scale, s.xlims[1]*s.xaxis_scale))
+    ax.set_ylim((s.ylims[0]*s.yaxis_scale, s.ylims[1]*s.yaxis_scale))
     ax.set_aspect(1)
     #ax.set_xlim(np.min(content_manager[z][0][0]), np.max(content_manager[z][0][0]))
     fig.canvas.draw()
@@ -517,7 +904,7 @@ def makeImage(z,
     cont = ax.tricontourf(content_manager[z][0][:,0],
                           content_manager[z][0][:,1],
                           content_manager[z][0][:,2],
-                          cmap='jet', levels=levels)
+                          cmap='jet', s.levels=levels)
     if(draw_airfoil):
             c = ax.fill_between(n18x, n18y, n18y2, color = 'grey', linewidth=0)
     lns = []
@@ -535,72 +922,69 @@ def makeImage(z,
             pts[1].append(f"point {pt}")
     fig.canvas.blit(fig.bbox)
     '''
-    for i in range(len(content_manager[z])):
+    content = content_manager[z]
+    for i in range(len(content)):
         #fig.canvas.restore_region(bg)
         fig.clf()
         fig.canvas.restore_region(bg)
         #fig.set_size_inches(width,height)
         #fig.set_dpi(1920/width)
-        if(len(probe_coords)>0):
+        if(len(s.probe_coords)>0):
             ax = fig.add_subplot(2,1,1)
             axb = fig.add_subplot(2, 1, 2)
         else:
             ax = fig.add_subplot(1, 1, 1)
-        ax.set_xlim((xlims[0], xlims[1]))
-        ax.set_ylim((ylims[0], ylims[1]))
+        ax.set_xlim((xlims[0]*s.xaxis_scale, xlims[1]*s.xaxis_scale))
+        ax.set_ylim((ylims[0]*s.yaxis_scale, ylims[1]*s.yaxis_scale))
         ax.set_aspect(1)
         pts = [[], []]
         print(f"[{z}]\tFrame: {number_of_files}")
         #tb, probes, rows, cols = proc2(None, None, time_manager[z][i], probe_coords, probes, content_manager[z][i], rows, cols)
         #naca0018
-        cont = ax.tricontourf(content_manager[z][i][:,0],
-                              content_manager[z][i][:,1],
-                              content_manager[z][i][:,2],
-                              cmap='jet', levels=levels)
+        cont = ax.tricontourf(content[i][:,0]*s.xaxis_scale,
+                              content[i][:,1]*s.yaxis_scale,
+                              content[i][:,2],
+                              cmap='jet', levels=s.level)
         #apply mask
-        if(draw_airfoil):
-            c = ax.fill_between(n18x, n18y, n18y2, color = 'grey', linewidth=0)
+        if(s.draw_airfoil):
+            c = ax.fill_between(s.n18x*s.xaxis_scale, s.n18y*s.yaxis_scale, n18y2*s.yaxis_scale, color = 'grey', linewidth=0)
+        for mask in s.masks:
+            ax.fill(mask.xarray*s.xaxis_scale, mask.yarray*s.yaxis_scale, mask.color)
         #write frame time
         tx = fig.text(0.7, 0.03,
                       "t="+str(time_manager[z][i])+"s")
-        if(len(probe_coords)>0):
-            for pt in range(len(probe_coords)):
-                ax.fill_between([probe_coords[pt][0]-h/2., probe_coords[pt][0]+h/2.],
-                            probe_coords[pt][1]-h/2., probe_coords[pt][1]+h/2.,
+        if(len(s.probe_coords)>0):
+            for pt in range(len(s.probe_coords)):
+                ax.fill_between([(s.probe_coords[pt][0]-h/2)*s.xaxis_scale, (s.probe_coords[pt][0]+h/2.)*s.yaxis_scale],
+                            (s.probe_coords[pt][1]-h/2.)*s.xaxis_scale, (s.probe_coords[pt][1]+h/2.)*s.yaxis_scale,
                             color="white")
-                ax.text(probe_coords[pt][0]+h/2., probe_coords[pt][1]+h/2., str(pt))
-                axb.text(probes[0][pt][number_of_files], probes[1][pt][number_of_files], str(pt))
-                axb.plot(probes[0][pt][:number_of_files], probes[1][pt][:number_of_files], c=f"C{pt}", alpha=0.5)
+                ax.text((s.probe_coords[pt][0]+h/2.)*s.xaxis_scale, (s.probe_coords[pt][1]+h/2.)*s.yaxis_scale, str(pt))
+                axb.text(s.probes[0][pt][number_of_files], s.probes[1][pt][number_of_files], str(pt))
+                axb.plot(s.probes[0][pt][:number_of_files], s.probes[1][pt][:number_of_files], c=f"C{pt}", alpha=0.5)
                 #lns.append(axb.plot(probes[0][pt][:number_of_files], probes[1][pt][:number_of_files], c=f"C{pt}", alpha=0.5))
                 #lns[pt].set_ydata(probes[1][pt][:number_of_files])
-                pts[0].append(axb.scatter(probes[0][pt][number_of_files], probes[1][pt][number_of_files], c=f"C{pt}"))
+                pts[0].append(axb.scatter(s.probes[0][pt][number_of_files], s.probes[1][pt][number_of_files], c=f"C{pt}"))
                 pts[1].append(f"point {pt}")
             #axb.legend(pts[0], pts[1], scatterpoints=1, loc='upper right')
-            axb.set_xlim(start_time, end_time)
-            axb_avg = np.average(np.asarray(probe_avg))
-            axb_amp = np.max(probe_amp)
+            axb.set_xlim(s.start_time, s.end_time)
+            axb_avg = np.average(np.asarray(s.probe_avg))
+            axb_amp = np.max(s.probe_amp)
             axb.set_ylabel("Normalised visualised value")
             axb.set_xlabel("time [s]")
             axb.set_ylim(-1.2, 1.2)
             axb.grid(True)
-        if(draw_airfoil):
+        if(s.draw_airfoil):
             ax.draw_artist(c)
         #for ln in lns:
         #    axb.draw_artist(ln)
         fig.canvas.draw()
+        if(returnImage):
+            return fig.canvas.tostring_argb()
         images.append(fig.canvas.tostring_argb())
         number_of_files+=1
     image_manager[z] = images
-    
-def execute(width, height,
-            xlims, ylims,
-            draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-            zipfilenames, alias, maxfiles,
-            XCoord, YCoord, visualisation_column, levels,
-            numbering_method, dt, processing_method,
-            probes, probe_coords,
-            probe_avg, probe_amp,
-            number_of_threads, videoname):
+
+def execute(s):
     '''
     fig = plt.figure(
         figsize=(width, height),
@@ -614,50 +998,51 @@ def execute(width, height,
     axb.set_box_aspect(1/3)
     '''
     #naca0018
-    n18x, n18y, n18y2 = generateNACA(airfoil_thickness*airfoil_chord, airfoil_chord, -airfoil_aoa*np.pi/180.0, points=200)
+    s.n18x, s.n18y, n18y2 = generateNACA(s.airfoil_thickness*s.airfoil_chord, s.airfoil_chord, -airfoil_aoa*np.pi/180.0, points=200)
 
     filelist = []
-    if(zipfilenames!=None):
-        if(isinstance(zipfilenames, list)):
-            for zipfilename in zipfilenames:
+    if(s.zipfilenames!=None):
+        if(isinstance(s.zipfilenames, list)):
+            for zipfilename in s.zipfilenames:
                 print(f"reading filelist of {zipfilename}")
                 zfile = zipfile.ZipFile(zipfilename, 'r')
                 filelist.append([])
                 for filename in zfile.filelist:
-                    if(alias in filename.filename):
+                    if(s.alias in filename.filename):
                         filelist[-1].append(filename.filename)
                 zfile.close()
         else:
-            zfile = zipfile.ZipFile(zipfilenames, 'r')
+            zfile = zipfile.ZipFile(s.zipfilenames, 'r')
             filelist.append([])
             for filename in zfile.filelist:
-                if(alias in filename.filename):
+                if(s.alias in filename.filename):
                     filelist[0].append(filename.filename)
             zfile.close()
     else:
         filelist = [[var for var in os.listdir("plots/") if "full" in var]]
     #print(filelist)
-    if(numbering_method == "flow-time"):
-        dt = getNumbering(filelist[0][1], numbering_method)-getNumbering(filelist[0][0], numbering_method)
-    start_time = getNumbering(filelist[0][0], numbering_method)#float(filelist[0][0].split("-")[-1].split(".")[0]+'.'+filelist[0][0].split("-")[-1].split(".")[1])
-    end_time = getNumbering(filelist[-1][-1], numbering_method)#float(filelist[-1][-1].split("-")[-1].split(".")[0]+'.'+filelist[-1][-1].split("-")[-1].split(".")[1])
-    if(numbering_method=="time-step"):
-        start_time *= dt
-        end_time *= dt
+    if(s.numbering_method == "flow-time"):
+        s.dt = getNumbering(filelist[0][1], s.numbering_method)-getNumbering(filelist[0][0], s.numbering_method)
+    start_time = getNumbering(filelist[0][0], s.numbering_method)#float(filelist[0][0].split("-")[-1].split(".")[0]+'.'+filelist[0][0].split("-")[-1].split(".")[1])
+    end_time = getNumbering(filelist[-1][-1], s.numbering_method)#float(filelist[-1][-1].split("-")[-1].split(".")[0]+'.'+filelist[-1][-1].split("-")[-1].split(".")[1])
+    if(s.numbering_method=="time-step"):
+        start_time *= s.dt
+        end_time *= s.dt
     #axb.set_xlim((start_time, end_time))
-    for i in range(len(probe_coords)):
-        probes[0].append([])
-        probes[1].append([])
+    for i in range(len(s.probe_coords)):
+        s.probes[0].append([])
+        s.probes[1].append([])
     
     content_manager = Manager().dict()
     time_manager = Manager().dict()
     probes_manager = Manager().dict()
+    image_manager = Manager().dict()#[[] for var in range(s.number_of_threads)]
     threads = []
     sumlist = 0
     for i in range(len(filelist)):
         sumlist = sumlist+len(filelist[i])
-    if(maxfiles == None):
-        maxfiles = int(sumlist/number_of_threads)+1
+    if(s.maxfiles == None):
+        s.maxfiles = int(sumlist/s.number_of_threads)+1
     sumlist=0
     endlist=len(filelist[0])
     minfiles = 0
@@ -665,8 +1050,8 @@ def execute(width, height,
     start_index = 0
     end_index = 0
     sumlist1 = 0
-    sumlist2 = maxfiles
-    for t in range(number_of_threads):
+    sumlist2 = s.maxfiles
+    for t in range(s.number_of_threads):
         while(sumlist2>endlist):
             end_index+=1
             if(len(filelist)<=end_index):
@@ -677,11 +1062,15 @@ def execute(width, height,
             start_index+=1
         print(f"[{t}]\t{start_index}@{sumlist1}, {end_index}@{sumlist2}\tsumlist={sumlist}")
         print(f"Adding new process: zipfiles at ({start_index}:{end_index+1})")
-        #t, zipfilenames, minfiles, maxfiles, sumlist, alias, visualisation_column, xlims, ylims, probes, probe_coords, content_manager, time_manager, probes_manager
-        threads.append(Process(target=readFiles, args=(t, zipfilenames[start_index:end_index+1], sumlist1, maxfiles, sumlist, alias, XCoord, YCoord, visualisation_column, numbering_method, dt, processing_method, xlims, ylims, probes, probe_coords, content_manager, time_manager, probes_manager)))
+        #t, s.zipfilenames, minfiles, s.maxfiles, sumlist, s.alias, s.visualisation_column, s.xlims, s.ylims, s.probes, s.probe_coords, content_manager, time_manager, probes_manager
+        threads.append(Process(target=readFiles,
+                args=(t, s.zipfilenames[start_index:end_index+1], s,
+                    sumlist1,
+                    s.maxfiles, sumlist,
+                    content_manager, time_manager, probes_manager, image_manager)))
         threads[-1].start()
-        sumlist1+=maxfiles
-        sumlist2+=maxfiles
+        sumlist1+=s.maxfiles
+        sumlist2+=s.maxfiles
     for t in threads:
         t.join()
     
@@ -689,49 +1078,49 @@ def execute(width, height,
     for i in range(len(filelist)):
         sumlist = sumlist+len(filelist[i])
     
-    #levels of contours
-    if(isinstance(levels, type(None))):
-        levels = np.linspace(-1000, 1000, 256)
+    #s.levels of contours
+    if(isinstance(s.levels, type(None))):
+        s.levels = np.linspace(-1000, 1000, 256)
         values_range = content_manager[0][0][:,2]
         #read initial file
-        #t, LE, HE, levels, xlims, ylims, zipfilename, filelist, multiproc, visualisation_column, probes, probe_coords, contents=None, start_time=0, end_time = 2e-1
-        #tb, probes, rows, cols = proc2(zipfilenames[0], filelist[0][0], 0, probe_coords, probes, xlims, ylims, content_manager[0][0])
-        levels = np.linspace(np.min(values_range)*1.2, np.max(values_range)*1.2, len(levels))
+        #t, LE, HE, s.levels, s.xlims, s.ylims, zipfilename, filelist, multiproc, s.visualisation_column, s.probes, s.probe_coords, contents=None, start_time=0, end_time = 2e-1
+        #tb, s.probes, rows, cols = proc2(s.zipfilenames[0], filelist[0][0], 0, s.probe_coords, s.probes, s.xlims, s.ylims, content_manager[0][0])
+        s.levels = np.linspace(np.min(values_range)*1.2, np.max(values_range)*1.2, len(s.levels))
 
     #generate initial contours
     #cont = ax.tricontourf(content_manager[0][0][:,0], content_manager[0][0][:,1], content_manager[0][0][:,2], cmap='jet')
     
-    if(len(probe_coords)>0):
-        probes = [[], []]#time, value
-        for i in range(len(probe_coords)):
-            probes[0].append([])
-            probes[1].append([])
-            for t in range(number_of_threads):
-                probes[0][i] += probes_manager[t][0][i]
-                probes[1][i] += probes_manager[t][1][i]
-            probe_avg[i] = np.average(probes[1][i])
-            probe_amp[i] = (np.max(probes[1][i])-np.min(probes[1][i]))/2.
+    if(len(s.probe_coords)>0):
+        s.probes = [[], []]#time, value
+        for i in range(len(s.probe_coords)):
+            s.probes[0].append([])
+            s.probes[1].append([])
+            for t in range(s.number_of_threads):
+                s.probes[0][i] += probes_manager[t][0][i]
+                s.probes[1][i] += probes_manager[t][1][i]
+            s.probe_avg[i] = np.average(s.probes[1][i])
+            s.probe_amp[i] = (np.max(s.probes[1][i])-np.min(s.probes[1][i]))/2.
         
-        #calculate fft of probes
-        dt = np.round(probes[0][0][3]-probes[0][0][2], decimals=6)
-        print(f"dt={dt}, sumlist={sumlist}")
-        freqs = np.linspace(0, (min(sumlist, sumlist1)-1)/(dt*min(sumlist, sumlist1)), min(sumlist, sumlist1))
-        probes_freq = [[], []]
+        #calculate fft of s.probes
+        s.dt = np.round(s.probes[0][0][3]-s.probes[0][0][2], decimals=6)
+        print(f"s.dt={s.dt}, sumlist={sumlist}")
+        freqs = np.linspace(0, (min(sumlist, sumlist1)-1)/(s.dt*min(sumlist, sumlist1)), min(sumlist, sumlist1))
+        s.probes_freq = [[], []]
         fig2, ax2 = plt.subplots(nrows=1, ncols=1, figsize=(7, 4), dpi=500)
-        for pt in range(len(probe_coords)):
-            probes_freq[0].append(freqs)
-            probes_freq[1].append(20.*np.log10(np.abs(np.fft.fft(probes[1][pt]))/sumlist/2e-5))
-            ax2.plot(probes_freq[0][pt][np.where(probes_freq[0][pt]<750)], probes_freq[1][pt][np.where(probes_freq[0][pt]<750)], label=f"point {pt}")
+        for pt in range(len(s.probe_coords)):
+            s.probes_freq[0].append(freqs)
+            s.probes_freq[1].append(20.*np.log10(np.abs(np.fft.fft(s.probes[1][pt]))/sumlist/2e-5))
+            ax2.plot(s.probes_freq[0][pt][np.where(s.probes_freq[0][pt]<750)], s.probes_freq[1][pt][np.where(s.probes_freq[0][pt]<750)], label=f"point {pt}")
         ax2.grid(True)
         ax2.legend()
         #ax2.set_xlim(50, 750)
         ax2.set_xlabel("Frequency [Hz]")
         ax2.set_ylabel("SPL [dB]")
-        fig2.savefig(".".join(videoname.split(".")[:-1])+"_probe_fft.png")
+        fig2.savefig(".".join(s.videoname.split(".")[:-1])+"_probe_fft.png")
         plt.close(fig2)
 
     #prepare mask for unnecessarly triangulated values
-    #if(draw_airfoil):
+    #if(s.draw_airfoil):
     #    c = ax.fill_between(n18x, n18y, n18y2)
     #add initial text
     #filename=filelist[0][0]
@@ -739,7 +1128,7 @@ def execute(width, height,
     #              "t="+filename.split("-")[-1].split(".")[0]+
     #              '.'+filename.split("-")[-1].split(".")[1]+"s")
     if(direct==False):
-        for z, zipfilename in enumerate(zipfilenames):
+        for z, zipfilename in enumerate(s.zipfilenames):
             threads = []
             for t in range(proc_num):
                 LE = int(t*(len(filelist)-1)/proc_num)
@@ -747,7 +1136,7 @@ def execute(width, height,
                     HE = int((t+1)*(len(filelist)-1)/proc_num)
                 else:
                     HE = (len(filelist))
-                threads.append(Process(target=proc, args=(t, LE, HE, levels, xlims, ylims, zipfilename, filelist[z], True, visualisation_column, probes, probe_coords, fig, ax, axb, None, start_time, end_time)))
+                threads.append(Process(target=proc, args=(t, LE, HE, s.levels, s.xlims, s.ylims, zipfilename, filelist[z], True, s.visualisation_column, s.probes, s.probe_coords, fig, ax, axb, None, start_time, end_time)))
                 threads[-1].start()
             for i in range(proc_num):
                 threads[i].join()
@@ -755,71 +1144,69 @@ def execute(width, height,
     if(direct==True):
         number_of_files=0
         writer = animation.FFMpegWriter(codec="h264",fps=30)
-        image_manager = Manager().dict()#[[] for var in range(number_of_threads)]
         print(f"Liczba klatek: {min(sumlist, sumlist1)}")
-        #with writer.saving(fig, videoname, 1920/7):#sumlist
+        #with writer.saving(fig, s.videoname, 1920/7):#sumlist
         threads = []
         executed_frames = 0
-        for z, zipfilename in enumerate(content_manager):
-            for i in range(number_of_files, number_of_files+len(content_manager[z])):
-                if(not isinstance(probe_avg, type(None))):
-                    try:
-                        for o in range(len(probes[1])):
-                            probes[1][o][i] -= probe_avg[o]
-                    except:
-                        print("Could not induce average")
-                if(not isinstance(probe_amp, type(None))):
-                    try:
-                        for o in range(len(probes[1])):
-                            probes[1][o][i] /= probe_amp[o]
-                    except:
-                        print("Could not induce amplitude")
-            threads.append(Process(target=makeImage, args=(z,
-                        width, height,
-                        number_of_files,
-                        levels,
-                        draw_airfoil, n18x, n18y, n18y2,
-                        start_time, end_time,
-                        xlims, ylims, h,
-                        probe_coords, probes, probe_amp, probe_avg,
-                        content_manager, time_manager, image_manager)))
-            threads[-1].start()
-            number_of_files+=len(content_manager[z])
-        for t in threads:
-            t.join()
+        if(not s.preserveRAM):
+            for z, zipfilename in enumerate(content_manager):
+                for i in range(number_of_files, number_of_files+len(content_manager[z])):
+                    if(not isinstance(s.probe_avg, type(None))):
+                        try:
+                            for o in range(len(s.probes[1])):
+                                s.probes[1][o][i] -= s.probe_avg[o]
+                        except:
+                            print("Could not induce average")
+                    if(not isinstance(s.probe_amp, type(None))):
+                        try:
+                            for o in range(len(s.probes[1])):
+                                s.probes[1][o][i] /= s.probe_amp[o]
+                        except:
+                            print("Could not induce amplitude")
+                threads.append(Process(target=makeImage, args=(z, s,
+                            number_of_files, n18y2,
+                            h,
+                            content_manager, time_manager, image_manager)))
+                threads[-1].start()
+                number_of_files+=len(content_manager[z])
+            for t in threads:
+                t.join()
         print(len(image_manager[0][0]))
         cmd_out = ['ffmpeg',
            '-f', 'rawvideo',
            '-pix_fmt', 'argb',
-           '-s', f'{int(len(image_manager[0][0])/1080/4)}x1080',
-           '-r', '60',  # FPS 
+           '-s', f'{s.horizontal_resolution}x{int(len(image_manager[0][0])/s.horizontal_resolution/4)}',#{int(len(image_manager[0][0])/1080/4)}
+           '-r', '75',  # FPS 
            '-i', '-',  # Indicated input comes from pipe 
            '-f', 'mp4',
-		   '-pix_fmt', 'yuv420p',
-		   '-s', f'{int(len(image_manager[0][0])/1080/4)}x1080',#1080
-           '-b:v', '4000k',
-           '-vcodec', 'mpeg4',
-           videoname]
-        if(os.path.exists(videoname)):
-            os.remove(videoname)
+           '-pix_fmt', 'yuv420p',
+           #'-s', f'{int(len(image_manager[0][0])/1080/4)}x1080',#1080#int(len(image_manager[0][0])/1080/4)
+           '-b:v', '32000k',
+           '-vcodec', 'h264_nvenc',#mpeg4
+           s.videoname]
+        if(os.path.exists(s.videoname)):
+            os.remove(s.videoname)
         pipe = sp.Popen(cmd_out, stdin=sp.PIPE)
-        for z in range(number_of_threads):
-            for i in range(len(image_manager[z])):
+        img_mg = []
+        for z in range(s.number_of_threads):
+                img_mg.append(image_manager[z])
+        for z in range(s.number_of_threads):
+            for i in range(len(img_mg[z])):
                 #print(image_manager[z][i])
-                pipe.stdin.write(image_manager[z][i])
+                pipe.stdin.write(img_mg[z][i])
         pipe.stdin.close()
         pipe.wait()
-        if(isinstance(probe_avg, type(None)) or isinstance(probe_amp, type(None))):
-                outfile = open("probes.txt", "w")
-                outfile.write(f"coords\t{len(probe_coords)}\n")
-                for i in range(len(probe_coords)):
-                    outfile.write(f"{probe_coords[i][0]}\t{probe_coords[i][1]}\n")
-                outfile.write(f"average_vals\t{len(probes[1])}\n")
-                for i in range(len(probes[1])):
-                    outfile.write(f"{np.average(probes[1][i])}\t \n")
-                outfile.write(f"Ra\t{len(probes[1])}\n")
-                for i in range(len(probes[1])):
-                    outfile.write(f"{(np.max(probes[1][i])-np.min(probes[1][i]))/2}\t \n")                
+        if(isinstance(s.probe_avg, type(None)) or isinstance(s.probe_amp, type(None))):
+                outfile = open("s.probes.txt", "w")
+                outfile.write(f"coords\t{len(s.probe_coords)}\n")
+                for i in range(len(s.probe_coords)):
+                    outfile.write(f"{s.probe_coords[i][0]}\t{s.probe_coords[i][1]}\n")
+                outfile.write(f"average_vals\t{len(s.probes[1])}\n")
+                for i in range(len(s.probes[1])):
+                    outfile.write(f"{np.average(s.probes[1][i])}\t \n")
+                outfile.write(f"Ra\t{len(s.probes[1])}\n")
+                for i in range(len(s.probes[1])):
+                    outfile.write(f"{(np.max(s.probes[1][i])-np.min(s.probes[1][i]))/2}\t \n")                
                 outfile.close()
     
 def findZipFiles(zipfilenames, args = []):
@@ -879,17 +1266,51 @@ def findZipFiles(zipfilenames, args = []):
     print(zipfilenames)
     return zipfilenames
 
-def runSingular(width,
-            xlims, ylims,
-            draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-            zipfilenames, processing_method, levels,
-            XCoord, YCoord, visualisation_column,
-            numbering_method,
-            number_of_threads, args = []):
+def makeSingularImage(s, contents, outputfilename = "0.png", returnString = False):
+    fig = plt.figure(
+        figsize=(s.width, s.width*(s.ylims[1]-s.ylims[0])/(s.xlims[1]-s.xlims[0])),
+        dpi = s.horizontal_resolution/s.width
+    )
+    ax = fig.add_subplot(111)
+    ax.set_xlabel(s.xlabel)
+    ax.set_ylabel(s.ylabel)
+    print("Setting visualisation levels")
+    contents_lim, rows, cols = limit_region(contents, s.xlims, s.ylims)
+    if(isinstance(s.levels, type(None))):
+        s.levels = np.linspace(np.min(contents_lim[:,2]), np.max(contents_lim[:,2]), 1000)
+    print(f"levels' range: {s.levels[0]} - {s.levels[-1]}")
+    cont = ax.tricontourf(contents[:, 0]*s.xaxis_scale, contents[:, 1]*s.yaxis_scale, contents[:, 2], cmap='jet', levels = s.levels)
+    plt.subplots_adjust(top=0.95)
+    #generowanie mapy konturów
+    if(s.draw_airfoil):
+        print("Applying mask")
+        n18x, n18y, n18y2 = generateNACA(s.airfoil_thickness*s.airfoil_chord, s.airfoil_chord, -s.airfoil_aoa*np.pi/180.0, points=200)
+        ax.fill_between(n18x*s.xaxis_scale, n18y*s.yaxis_scale, n18y2*s.yaxis_scale, color = 'grey', linewidth=0)
+    for i, mask in enumerate(s.masks):
+        print(f"Applying mask {i}: \"{mask.name}\"")
+        ax.fill(np.asarray(mask.xarray)*s.xaxis_scale, np.asarray(mask.yarray)*s.xaxis_scale, mask.color)
+    ax.set_xlim(s.xlims[0]*s.xaxis_scale, s.xlims[1]*s.xaxis_scale)
+    ax.set_ylim(s.ylims[0]*s.yaxis_scale, s.ylims[1]*s.yaxis_scale)
+    ax.set_aspect(1)
+    divider = make_axes_locatable(ax)
+    cax = divider.new_horizontal(size='5%', pad=0.1, pack_start=False)
+    fig.add_axes(cax)
+    plt.colorbar(cont, ax=[ax], cax=cax, orientation="vertical")
+    if(returnString):
+        fig.canvas.draw()
+        imgstring = fig.canvas.tostring_argb()
+        plt.close()
+        return imgstring
+    print(f"Saving file to: {outputfilename}")
+    plt.savefig(outputfilename)
+    plt.close(fig)
+
+def runSingular(s, args = []):
+    s.horizontal_resolution=3840
     completefilelist = []
     inputfilename = None
-    if(not isinstance(zipfilenames, type(None))):
-        for z, zipfilename in enumerate(zipfilenames):
+    if(not isinstance(s.zipfilenames, type(None))):
+        for z, zipfilename in enumerate(s.zipfilenames):
             zfile = zipfile.ZipFile(zipfilename, "r")
             completefilelist.append(zfile.namelist())
             zfile.close()
@@ -906,11 +1327,11 @@ def runSingular(width,
     if(intext!=""):
         inputfilename = intext
     #ładowanie treści pliku
-    if(not os.path.exists(inputfilename) or not isinstance(zipfilenames, type(None))):
+    if(not os.path.exists(inputfilename) or not isinstance(s.zipfilenames, type(None))):
         for z, filelist in enumerate(completefilelist):
             if(inputfilename in filelist):
-                print(f"Opening zip file: {zipfilenames[z]}")
-                zfile = zipfile.ZipFile(zipfilenames[z], "r")
+                print(f"Opening zip file: {s.zipfilenames[z]}")
+                zfile = zipfile.ZipFile(s.zipfilenames[z], "r")
                 lines = zfile.open(inputfilename, 'r').read().decode().split("\n")
                 break
         if(isinstance(zfile, type(None))):
@@ -953,10 +1374,10 @@ def runSingular(width,
     contents = [[], [], []]
     llwidth = 0
     prev_line = []
-    if(isinstance(XCoord, str)):
-        XCoord = prev_line.index(XCoord)
-    if(isinstance(YCoord, str)):
-        YCoord = prev_line.index(YCoord)
+    if(isinstance(s.XCoord, str)):
+        s.XCoord = prev_line.index(s.XCoord)
+    if(isinstance(s.YCoord, str)):
+        s.YCoord = prev_line.index(s.YCoord)
     print("Loading data")
     udm = []
     for line in lines:
@@ -971,51 +1392,21 @@ def runSingular(width,
         #kiedy zmniejszy się szerokość tablicy przerwij konwersję
         if(len(ll)<llwidth):
             break
-        (d1,d2,vmag,d3,udm) = processing_method(XCoord, YCoord, prev_line, ll, visualisation_column,udm)
+        (d1,d2,vmag,d3,udm) = s.processing_method(s.XCoord, s.YCoord, prev_line, ll, s.visualisation_column, udm)
         contents[0].append(d1)
         contents[1].append(d2)
         contents[2].append(vmag)
     contents = np.transpose(np.asarray(contents))
     print("Preparing figure")
-    fig = plt.figure(
-        figsize=(width, width*(ylims[1]-ylims[0])/(xlims[1]-xlims[0])),
-        dpi = 3840/width
-    )
-    ax = fig.add_subplot(111)
-    ax.set_xlabel("X coordinate [m]")
-    ax.set_ylabel("Y coordinate [m]")
-    print("Setting visualisation levels")
-    contents_lim, rows, cols = limit_region(contents, xlims, ylims)
-    if(isinstance(levels, type(None))):
-        levels = np.linspace(np.min(contents_lim[:,2]), np.max(contents_lim[:,2]), 1000)
-    print(f"levels' range: {levels[0]} - {levels[-1]}")
-    cont = ax.tricontourf(contents[:, 0], contents[:, 1], contents[:, 2], cmap='jet', levels = levels)
-    plt.subplots_adjust(top=0.95)
-    #generowanie mapy konturów
-    if(draw_airfoil):
-        print("Applying mask")
-        n18x, n18y, n18y2 = generateNACA(airfoil_thickness*airfoil_chord, airfoil_chord, -airfoil_aoa*np.pi/180.0, points=200)
-        ax.fill_between(n18x, n18y, n18y2, color = 'grey', linewidth=0)
-    ax.set_aspect(1)
-    ax.set_xlim(xlims[0], xlims[1])
-    ax.set_ylim(ylims[0], ylims[1])
-    divider = make_axes_locatable(ax)
-    cax = divider.new_horizontal(size='5%', pad=0.1, pack_start=False)
-    fig.add_axes(cax)
-    plt.colorbar(cont, ax=[ax], cax=cax, orientation="vertical")
-    print(f"Saving file to: {outputfilename}")
-    plt.savefig(outputfilename)
-    plt.close(fig)
-    print("Done.")
     
-def exportData(zipfilenames, processing_method,
-            XCoord, YCoord, visualisation_column,
-            numbering_method,
-            number_of_threads, args = []):
+    makeSingularImage(s, contents, outputfilename, False)
+    print("Done.")
+
+def exportData(s, args = []):
     completefilelist = []
     inputfilename = None
-    if(not isinstance(zipfilenames, type(None))):
-        for z, zipfilename in enumerate(zipfilenames):
+    if(not isinstance(s.zipfilenames, type(None))):
+        for z, zipfilename in enumerate(s.zipfilenames):
             zfile = zipfile.ZipFile(zipfilename, "r")
             completefilelist.append(zfile.namelist())
             zfile.close()
@@ -1032,11 +1423,11 @@ def exportData(zipfilenames, processing_method,
     if(intext!=""):
         inputfilename = intext
     #ładowanie treści pliku
-    if(not os.path.exists(inputfilename) or not isinstance(zipfilenames, type(None))):
+    if(not os.path.exists(inputfilename) or not isinstance(s.zipfilenames, type(None))):
         for z, filelist in enumerate(completefilelist):
             if(inputfilename in filelist):
-                print(f"Opening zip file: {zipfilenames[z]}")
-                zfile = zipfile.ZipFile(zipfilenames[z], "r")
+                print(f"Opening zip file: {s.zipfilenames[z]}")
+                zfile = zipfile.ZipFile(s.zipfilenames[z], "r")
                 lines = zfile.open(inputfilename, 'r').read().decode().split("\n")
                 break
         if(isinstance(zfile, type(None))):
@@ -1077,10 +1468,10 @@ def exportData(zipfilenames, processing_method,
     contents = [[], [], []]
     llwidth = 0
     prev_line = []
-    if(isinstance(XCoord, str)):
-        XCoord = prev_line.index(XCoord)
-    if(isinstance(YCoord, str)):
-        YCoord = prev_line.index(YCoord)
+    if(isinstance(s.XCoord, str)):
+        s.XCoord = prev_line.index(s.XCoord)
+    if(isinstance(s.YCoord, str)):
+        s.YCoord = prev_line.index(s.YCoord)
     print("Loading data")
     udm = None
     for line in lines:
@@ -1095,13 +1486,13 @@ def exportData(zipfilenames, processing_method,
         #kiedy zmniejszy się szerokość tablicy przerwij konwersję
         if(len(ll)<llwidth):
             break
-        (d1,d2,vmag,d3,udm) = processing_method(XCoord, YCoord, prev_line, ll, visualisation_column, udm)
+        (d1,d2,vmag,d3,udm) = s.processing_method(s.XCoord, s.YCoord, prev_line, ll, s.visualisation_column, udm)
         contents[0].append(d1)
         contents[1].append(d2)
         contents[2].append(vmag)
     print("Exporting data")
     file = open(outputfilename, "w")
-    file.write(f"xcol ycol {processing_method.__name__}\n")
+    file.write(f"xcol ycol {s.processing_method.__name__}\n")
     for ln in range(len(contents[0])):
         for cl in range(len(contents)):
             file.write("{:.9e}".format(contents[cl][ln]))
@@ -1197,7 +1588,59 @@ def findYCoord(YCoord, args = []):
                 print("Could not read line!\nFalling back to default visualised column.")
     print(f"Y-coordinate column set to {YCoord}")
     return YCoord
-    
+
+def findXScale(Scale, args = []):
+    if(len(args)==0):
+        intext = input(f"Please specify X-axis scale factor:\n[{Scale}]\n/xscale > ")
+    else:
+        intext = " ".join(args)
+    if(intext!=""):
+            try:
+                intext = float(intext)
+            except:
+                print("Could not read line!\nFalling back to 1.")
+    print(f"X-axis scale factor set to {intext}.")
+    return intext
+
+def findYScale(Scale, args = []):
+    if(len(args)==0):
+        intext = input(f"Please specify Y-axis scale factor:\n[{Scale}]\n/yscale > ")
+    else:
+        intext = " ".join(args)
+    if(intext!=""):
+            try:
+                intext = float(intext)
+            except:
+                print("Could not read line!\nFalling back to 1.")
+    print(f"Y-axis scale factor set to {intext}.")
+    return intext
+
+def findYLabel(label, args = []):
+    if(len(args)==0):
+        intext = input(f"Please specify X-axis label:\n[{Scale}]\n/xlabel > ")
+    else:
+        intext = " ".join(args)
+    if(intext!=""):
+        if("\\n" in intext):
+            intext = '\n'.join(intext.split("\\n"))
+        if("\\t" in intext):
+            intext = '\t'.join(intext.split("\\t"))
+    print(f"X-axis label set to {intext}.")
+    return intext
+
+def findYLabel(label, args = []):
+    if(len(args)==0):
+        intext = input(f"Please specify Y-axis label:\n[{Scale}]\n/ylabel > ")
+    else:
+        intext = " ".join(args)
+    if(intext!=""):
+        if("\\n" in intext):
+            intext = '\n'.join(intext.split("\\n"))
+        if("\\t" in intext):
+            intext = '\t'.join(intext.split("\\t"))
+    print(f"Y-axis label set to {intext}.")
+    return intext
+
 def findLevels(levels, args=[]):
     if(isinstance(levels, type(None))):
         minlev = 0.
@@ -1384,6 +1827,59 @@ def findMaxFiles(maxfiles, args):
         except:
             print(f"Could not set number of files per thread. Falling back to default value ({maxfiles}).")
     return maxfiles
+
+def printAvailableMasks(settings, printMaskSettings=False):
+    if(len(settings.masks)==0):
+        print("Masks: No masks set")
+        return
+    for i, mask in enumerate(settings.masks):
+        if(not printMaskSettings):
+            print(f"Mask ({i})\t\"{mask.filename}\"")
+        else:
+            print(f"Mask ({i}):")
+            mask.printSettings()
+
+def checkMaskRemoveFlags(settings):
+    for i, mask in enumerate(settings.masks):
+        if(mask.removeFlag):
+            settings.masks.pop(i)
+    return settings
+
+def findMask(settings, args):
+    if(len(settings.masks)==0):
+        mask = maskSettings()
+        mask.menu(args)
+        settings.masks.append(mask)
+        return checkMaskRemoveFlags(settings)
+    if(len(settings.masks)>=1):
+        print("Please select mask to edit (n! for new):")
+        printAvailableMasks(settings)
+        if(len(args)<1):
+            intext = input("mask select > ")
+        else:
+            intext = args[0]
+            args = args[1:]
+            print(f"mask select > {intext}")
+        if(intext=="n!"):
+            mask = maskSettings()
+            mask.menu(args)
+            settings.masks.append(mask)
+            return checkMaskRemoveFlags(settings)
+        try:
+            intext = int(intext)
+        except:
+            try:
+                intext = [mask.name for mask in settings.masks].index(intext)
+            except:
+                print(f"Could not find mask name: {intext}")
+                return
+        settings.masks[intext].menu(args[:-1])
+        return checkMaskRemoveFlags(settings)
+
+
+def findPreseveRAM(preserveRAM, args):
+    if(len(args)==0):
+        pass
     
 def printAvailable():
     print("zipname\t\tfind zip files in given directory")
@@ -1396,6 +1892,7 @@ def printAvailable():
     print("ycol\t\tset Y-coordinate column name or index number")
     print("num-method\tset file numbering recognision metod")
     print("airfoil\t\tdraw airfoil mask")
+    print("mask\t\tload contour from external file as mask")
     print("levels\t\tset level range of contour plot")
     print("videoname\tset name of the output video file")
     print("singular\tgenerate a static image for given file")
@@ -1407,42 +1904,35 @@ def printAvailable():
     print("exit\t\tquit program")
     print("q\t\tquit program")
 
-def printCurrentSettings(width, height,
-                        xlims, ylims,
-                        draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-                        zipfilenames, alias, maxfiles,
-                        XCoord, YCoord, visualisation_column, levels,
-                        numbering_method, dt, processing_method,
-                        probes, probe_coords,
-                        probe_avg, probe_amp,
-                        number_of_threads, videoname):
-    print(f"Width of image: {width}")
-    print(f"Height of image: {height}")
-    print(f"X limits of visualised domain: {xlims}")
-    print(f"Y limits of visualised domain: {ylims}")
-    if(isinstance(levels, type(None))):
+def printCurrentSettings(s):
+    print(f"Width of image: {s.width}")
+    print(f"Height of image: {s.height}")
+    print(f"X limits of visualised domain: {s.xlims}")
+    print(f"Y limits of visualised domain: {s.ylims}")
+    if(isinstance(s.levels, type(None))):
         print(f"Contour plot level range: calculated")
     else:
-        print(f"Contour plot level range: {levels[0]} - {levels[-1]}")
-    print(f"Apply airfoil mask?: {draw_airfoil}")
-    print(f"Chord of airfoil mask: {airfoil_chord}")
-    print(f"Thickness of airfoil mask: {airfoil_thickness}")
-    print(f"Angle of attack of airfoil mask: {airfoil_aoa}")
-    print(f"Data processing method: {processing_method.__name__}")
-    print(f"Zip filenames:\n{zipfilenames}")
-    print(f"File alias: {alias}")
-    print(f"X-coordinate column: {XCoord}")
-    print(f"Y-coordinate column: {YCoord}")
-    print(f"Visualised column: {visualisation_column}")
-    print(f"File numbering method: {numbering_method}")
-    if(dt!=None):
-        print(f"Time step length: {dt}")
+        print(f"Contour plot level range: {s.levels[0]} - {s.levels[-1]}")
+    print(f"Apply airfoil mask?: {s.draw_airfoil}")
+    print(f"Chord of airfoil mask: {s.airfoil_chord}")
+    print(f"Thickness of airfoil mask: {s.airfoil_thickness}")
+    print(f"Angle of attack of airfoil mask: {s.airfoil_aoa}")
+    printAvailableMasks(s, True)
+    print(f"Data processing method: {s.processing_method.__name__}")
+    print(f"Zip filenames:\n{s.zipfilenames}")
+    print(f"File alias: {s.alias}")
+    print(f"X-coordinate column: {s.XCoord}")
+    print(f"Y-coordinate column: {s.YCoord}")
+    print(f"Visualised column: {s.visualisation_column}")
+    print(f"File numbering method: {s.numbering_method}")
+    if(s.dt!=None):
+        print(f"Time step length: {s.dt}")
     else:
         print(f"Time step length: calculated")
-    print(f"Max files per thread: {maxfiles}")
-    print(f"Probe coordinates:\n{probe_coords}")
-    print(f"Number of threads for file opening: {number_of_threads}")
-    print(f"Output video name: {videoname}")
+    print(f"Max files per thread: {s.maxfiles}")
+    print(f"Probe coordinates:\n{s.probe_coords}")
+    print(f"Number of threads for file opening: {s.number_of_threads}")
+    print(f"Output video name: {s.videoname}")
 
 #times of animation are found automatically
 start_time = 0
@@ -1467,6 +1957,7 @@ if(__name__=='__main__'):
     maxfiles = None
     numbering_method="flow-time"
     processing_method = processingFunctions.plainProcess
+    preserveRAM = True
     #probe_coords, probe_amp, probe_avg = findProbes(probe_coords, probe_amp, probe_avg, "probes.txt")
     airfoil_chord = 0.2
     airfoil_thickness = 0.18
@@ -1474,6 +1965,9 @@ if(__name__=='__main__'):
     draw_airfoil = False
     videoname = "output.mp4"
     line = ""
+
+    settings = graphSettings()
+
     while(line!="exit" and line!="q"):
         args = []
         ll = []
@@ -1486,87 +1980,68 @@ if(__name__=='__main__'):
             if(len(ll)>1):
                 args = ll[1:]
             if(ll[0] == "zipname"):
-                zipfilenames = findZipFiles(zipfilenames, args)
+                settings.zipfilenames = findZipFiles(settings.zipfilenames, args)
             if(ll[0] == "singular"):
-                runSingular(width,
-                            xlims, ylims,
-                            draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-                            zipfilenames, processing_method, levels,
-                            XCoord, YCoord, visualisation_column,
-                            numbering_method,
-                            number_of_threads, args)
+                runSingular(settings, args)
             if(ll[0] == "alias"):
-                alias = findAlias(alias, args)
+                settings.alias = findAlias(settings.alias, args)
             if(ll[0] == "xlims"):
-                xlims, width, height = findXLims(xlims, width, height, args)
+                settings.xlims, settings.width, settings.height = findXLims(settings.xlims, settings.width, settings.height, args)
                 if(len(probe_coords)<1):
-                    height = height/2
+                    settings.height = settings.height/2.
             if(ll[0] == "ylims"):
-                ylims, width, height = findYLims(ylims, width, height, args)
+                settings.ylims, settings.width, settings.height = findYLims(settings.ylims, settings.width, settings.height, args)
                 if(len(probe_coords)<1):
-                    height = height/2
+                    settings.height = settings.height/2.
             if(ll[0] == "vis"):
                 '''
                 visualisation_column = findVisCol(visualisation_column, args)
                 '''
-                visualisation_column = processingFunctions.findVis(processing_method, visualisation_column, args)
+                settings.visualisation_column = settings.processingFunctions.findVis(settings.processing_method, settings.visualisation_column, args)
             if(ll[0] == "xcol"):
-                XCoord = findXCoord(XCoord, args)
+                settings.XCoord = findXCoord(settings.XCoord, args)
             if(ll[0] == "ycol"):
-                YCoord = findYCoord(YCoord, args)
+                settings.YCoord = findYCoord(settings.YCoord, args)
+            if(ll[0] == "xscale"):
+                settings.xaxis_scale = findXScale(settings.xaxis_scale, args)
+            if(ll[0] == "yscale"):
+                settings.yaxis_scale = findYScale(settings.yaxis_scale, args)
+            if(ll[0] == "xlabel"):
+                settings.xlabel = findXScale(settings.xlabel, args)
+            if(ll[0] == "ylabel"):
+                settings.ylabel = findYScale(settings.ylabel, args)
             if(ll[0] == "num-method" or ll[0]=="num"):
-                numbering_method, dt = findNumMethod(numbering_method, dt, args)
+                settings.numbering_method, settings.dt = findNumMethod(settings.numbering_method, settings.dt, args)
             if(ll[0] == "airfoil"):
-                if(not draw_airfoil):
-                    draw_airfoil = True
-                    airfoil_chord, airfoil_thickness, airfoil_aoa = findAirfoil(airfoil_chord, airfoil_thickness, airfoil_aoa, args)
+                if(not settings.draw_airfoil):
+                    settings.draw_airfoil = True
+                    settings.airfoil_chord, settings.airfoil_thickness, settings.airfoil_aoa = findAirfoil(settings.airfoil_chord, settings.airfoil_thickness, settings.airfoil_aoa, args)
+                    print("Airfoil mask enabled")
                 else:
-                    draw_airfoil = False
+                    settings.draw_airfoil = False
                     print("Airfoil mask disabled")
+            if(ll[0] == "mask"):
+                settings = findMask(settings, args)
             if(ll[0]=="maxfiles"):
-                maxfiles = findMaxFiles(maxfiles, args)
+                settings.maxfiles = findMaxFiles(settings.maxfiles, args)
             if(ll[0] == "reload-probes" or ll[0] == "rp"):
-                probe_coords, probe_amp, probe_avg = findProbes(probe_coords, probe_amp, probe_avg, "probes.txt", args)
+                settings.probe_coords, settings.probe_amp, settings.probe_avg = findProbes(settings.probe_coords, settings.probe_amp, settings.probe_avg, "probes.txt", args)
             if(ll[0] == "levels"):
-                levels = findLevels(levels, args)
+                settings.levels = findLevels(settings.levels, args)
             if(ll[0] == "videoname"):
-                videoname = findVideoName(videoname, args)
+                settings.videoname = findVideoName(settings.videoname, args)
             if(ll[0] == "export" or ll[0] == "wd"):
-                exportData(zipfilenames, processing_method,
-                        XCoord, YCoord, visualisation_column,
-                        numbering_method,
-                        number_of_threads, args)
+                exportData(settings, args)
             if(ll[0] == "processing"):
-                processing_method, visualisation_column = processingFunctions.setProcessingMethod(processing_method, visualisation_column, args)
+                settings.processing_method, settings.visualisation_column = processingFunctions.setProcessingMethod(settings.processing_method, settings.visualisation_column, args)
             if(ll[0] == "average"):
-                averageFiles(zipfilenames,
-                            maxfiles,
-                            alias,
-                            XCoord, YCoord,
-                            numbering_method, dt,
-                            number_of_threads, args)
+                averageFiles(settings, args)
             if(ll[0] == "settings"):
-                printCurrentSettings(width, height,
-                        xlims, ylims,
-                        draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-                        zipfilenames, alias, maxfiles,
-                        XCoord, YCoord, visualisation_column, levels,
-                        numbering_method, dt, processing_method,
-                        probes, probe_coords,
-                        probe_avg, probe_amp,
-                        number_of_threads, videoname)
+                printCurrentSettings(settings)
             if(ll[0] == "threads"):
                 number_of_threads = findThreads(number_of_threads, args)
             if(ll[0] == "run"):
-                execute(width, height,
-                        xlims, ylims,
-                        draw_airfoil, airfoil_chord, airfoil_thickness, airfoil_aoa,
-                        zipfilenames, alias, maxfiles,
-                        XCoord, YCoord, visualisation_column, levels,
-                        numbering_method, dt, processing_method,
-                        probes, probe_coords,
-                        probe_avg, probe_amp,
-                        number_of_threads, videoname)
+                execute(settings)
             if(line==""):
                 printAvailable()
         except KeyboardInterrupt:
