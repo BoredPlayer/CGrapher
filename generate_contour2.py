@@ -1652,12 +1652,14 @@ def findLevels(levels, args=[]):
     if(len(args)<1):
         intext = input(f"Please specify minimum contour plot value:\n[{minlev}]\n/levels minval > ")
     else:
-        print(f"Please specify minimum contour plot value:\n[{minlev}]\n/levels minval > "+args[0])
+        print(f"Please specify minimum contour plot value (auto for both values to be found automatically):\n[{minlev}]\n/levels minval > "+args[0])
         intext = args[0]
     if(intext!=""):
         try:
             minlev = float(intext)
         except:
+            if(intext=='auto'):
+                return None
             print("Could not read minimum level. Falling back to default value.")
     if(len(args)<2):
         intext = input(f"Please specify maximum contour plot level value:\n[{maxlev}]/levels maxval > ")
